@@ -23,18 +23,25 @@ class IndicatorModel(ABC, Generic[T]):
         debug_mode=False,
     ):
         """Run all items in the batch."""
+        cluster = None
         if client is None:
             cluster = LocalCluster(processes=False)
             client = Client(cluster)
-        if debug_mode:
-            for item in self.batch_items():
-                self.run_single(item, source, target, client)
-        else:
-            for item in self.batch_items():
-                try:
+        try:
+            if debug_mode:
+                for item in self.batch_items():
                     self.run_single(item, source, target, client)
-                except Exception:
-                    logger.error("Batch item failed", exc_info=True)
+            else:
+                for item in self.batch_items():
+                    try:
+                        self.run_single(item, source, target, client)
+                    except Exception:
+                        logger.error("Batch item failed", exc_info=True)
+        finally:
+            if cluster is not None:
+                # we created this, let's clean up
+                client.close()
+                cluster.close()
 
     @abstractmethod
     def batch_items(self) -> Iterable[T]:
